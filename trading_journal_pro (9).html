@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Trading Journal PRO Online</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+<style>
+body { font-family: 'Inter', sans-serif; background: #f7f9fc; color:#000; margin:0; padding:30px; display:flex; justify-content:center; }
+.container { max-width: 1200px; width:100%; }
+h2 { text-align:center; color:#0d6efd; margin-bottom:20px; }
+.card { background:#fff; border-radius:12px; box-shadow:0 12px 28px rgba(14,20,37,0.1); margin-bottom:20px; padding:20px; color:#000; }
+label.form-label { font-weight:600; font-size:0.9rem; color:#000; }
+.form-control, .form-select { border-radius:8px; border:1px solid #ccc; padding:0.5rem 0.75rem; background:#fff; color:#000; }
+textarea.form-control { min-height:100px; resize:vertical; background:#fff; color:#000; }
+.btn { border-radius:10px; transition: all 0.2s ease; }
+.btn:hover { transform:translateY(-2px); }
+table.table tbody tr td { vertical-align: middle; color:#000; }
+table.table thead th { font-weight:600; border-bottom:2px solid #ddd; color:#000; }
+.table-responsive { max-height:300px; overflow:auto; }
+.small-muted { font-size:0.85rem; color:#6c757d; }
+.stats { display:flex; gap:20px; align-items:center; margin-top:15px; }
+footer { text-align:center; font-size:0.85rem; color:#6c757d; margin-top:30px; }
+img.thumbnail { width:50px; height:50px; object-fit:cover; border-radius:6px; cursor:pointer; }
+.modal-img, .modal-text { display:none; position:fixed; z-index:9999; left:0; top:0; width:100%; height:100%; overflow:auto; background:rgba(0,0,0,0.95); justify-content:center; align-items:center; }
+.modal-img img, .modal-text .content { max-width:90%; max-height:90%; border-radius:10px; color:#fff; font-size:1rem; background:rgba(0,0,0,0.85); padding:20px; white-space: pre-wrap; }
+.modal-img span, .modal-text span { position:absolute; top:20px; right:35px; color:#fff; font-size:40px; font-weight:bold; cursor:pointer; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h2>Trading Journal PRO Online</h2>
+
+  <div class="card">
+    <form id="journalForm" class="row g-3">
+      <div class="col-md-3"><label>Fecha</label><input id="fecha" class="form-control" type="date" /></div>
+      <div class="col-md-3"><label>Hora (UTC / Sesión)</label><input id="hora" class="form-control" type="text" placeholder="HH:MM UTC - Sesión" /></div>
+      <div class="col-md-3"><label>Activo</label><input id="activo" class="form-control" type="text" placeholder="EURUSD, BTC..." pattern="[A-Za-z]+" title="Solo letras" /></div>
+      <div class="col-md-3"><label>Tipo</label><select id="tipo" class="form-select"><option>Compra</option><option>Venta</option></select></div>
+
+      <div class="col-md-3"><label>Tamaño Lote/Contrato</label><input id="tam" class="form-control" type="number" step="any" /></div>
+      <div class="col-md-3"><label>Precio Entrada</label><input id="entrada" class="form-control" type="number" step="any" /></div>
+      <div class="col-md-3"><label>Stop Loss (SL)</label><input id="sl" class="form-control" type="number" step="any" /></div>
+      <div class="col-md-3"><label>Take Profit (TP)</label><input id="tp" class="form-control" type="number" step="any" /></div>
+
+      <div class="col-md-4"><label>Resultado</label><select id="resultado" class="form-select"><option>TP</option><option>SL</option><option>BE</option><option>Parcial</option></select></div>
+      <div class="col-md-4"><label>Ganancia/Pérdida ($)</label><input id="pl" class="form-control" type="number" step="any" /></div>
+      <div class="col-md-4"><label>% Riesgo</label><select id="porcRiesgo" class="form-select"><option>1%</option><option>2%</option><option>3%</option><option>4%</option></select></div>
+
+      <div class="col-md-6"><label>Setup Usado</label><textarea id="setup" class="form-control"></textarea></div>
+      <div class="col-md-6"><label>Confirmación / Notas Técnicas</label><textarea id="confirm" class="form-control"></textarea></div>
+
+      <div class="col-md-6"><label>Errores Detectados</label><textarea id="errores" class="form-control"></textarea></div>
+      <div class="col-md-6"><label>Lección Aprendida</label><textarea id="leccion" class="form-control"></textarea></div>
+
+      <div class="col-md-6"><label>Adjuntar imagen</label><input type="file" id="foto" class="form-control" accept="image/*"><div class="small-muted">JPG, PNG (max 2MB, opcional)</div></div>
+
+      <div class="col-12 d-flex justify-content-end gap-2">
+        <button type="submit" class="btn btn-primary">Guardar entrada</button>
+        <button type="button" id="addNow" class="btn btn-secondary">Agregar rápido</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h5>Entradas guardadas</h5>
+    </div>
+    <div class="table-responsive">
+      <table id="tableEntries" class="table table-striped table-hover">
+        <thead></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="stats">
+      <div><strong>Total operaciones:</strong> <span id="totalOps">0</span></div>
+      <div><strong>Win rate:</strong> <span id="winRate">0%</span></div>
+      <div><strong>Ganancia neta ($):</strong> <span id="netPl">0</span></div>
+    </div>
+  </div>
+
+  <footer>Journal guardado automáticamente en Firebase.</footer>
+</div>
+
+<div id="modalImg" class="modal-img"><span id="closeModal">&times;</span><img id="modalImage" src=""></div>
+<div id="modalErrores" class="modal-text"><span id="closeErrores">&times;</span><div class="content" id="erroresContent"></div></div>
+
+<script>
+// Configura tu Firebase aquí
+const firebaseConfig = {
+  apiKey: "TU_API_KEY",
+  authDomain: "TU_PROYECTO.firebaseapp.com",
+  projectId: "TU_PROYECTO",
+  storageBucket: "TU_PROYECTO.appspot.com",
+  messagingSenderId: "TU_SENDER_ID",
+  appId: "TU_APP_ID"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const storage = firebase.storage();
+
+async function saveEntryFirebase(entry, file) {
+  try {
+    if(file){
+      const storageRef = storage.ref().child('images/'+Date.now()+'_'+file.name);
+      const snapshot = await storageRef.put(file);
+      entry.Foto = await snapshot.ref.getDownloadURL();
+    } else entry.Foto = '';
+    await db.collection('entries').add(entry);
+    renderTableFirebase();
+  } catch(e){ alert('Error al guardar en Firebase: '+e); }
+}
+
+function gatherForm(){
+  return {
+    Fecha: document.getElementById('fecha').value,
+    Hora: document.getElementById('hora').value,
+    Activo: document.getElementById('activo').value,
+    Tipo: document.getElementById('tipo').value,
+    'Tamaño Lote/Contrato': document.getElementById('tam').value,
+    'Precio Entrada': document.getElementById('entrada').value,
+    'Stop Loss (SL)': document.getElementById('sl').value,
+    'Take Profit (TP)': document.getElementById('tp').value,
+    Resultado: document.getElementById('resultado').value,
+    'Ganancia/Pérdida ($)': document.getElementById('pl').value,
+    '% Riesgo': document.getElementById('porcRiesgo').value,
+    'Setup Usado': document.getElementById('setup').value,
+    'Confirmación': document.getElementById('confirm').value,
+    'Errores Detectados': document.getElementById('errores').value,
+    'Lección Aprendida': document.getElementById('leccion').value
+  };
+}
+
+function validateForm(entry){
+  const required = ['Fecha','Hora','Activo','Tipo','Tamaño Lote/Contrato','Precio Entrada','Stop Loss (SL)','Take Profit (TP)','Resultado','Ganancia/Pérdida ($)','% Riesgo'];
+  for(let f of required){ if(!entry[f]){ alert('Campo obligatorio: '+f); return false; } }
+  return true;
+}
+
+document.getElementById('journalForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const entry = gatherForm();
+  if(!validateForm(entry)) return;
+  const fileInput = document.getElementById('foto');
+  await saveEntryFirebase(entry, fileInput.files[0]);
+  document.getElementById('journalForm').reset();
+});
+
+async function renderTableFirebase(){
+  const tbody = document.querySelector('#tableEntries tbody');
+  tbody.innerHTML='';
+  const snapshot = await db.collection('entries').get();
+  let total=0, wins=0, net=0;
+  snapshot.forEach(doc=>{
+    const e = doc.data();
+    const tr = document.createElement('tr');
+    for(let key in e){
+      const td = document.createElement('td');
+      if(key==='Foto' && e[key]){
+        const btn = document.createElement('button'); btn.textContent='Ver'; btn.className='btn btn-sm btn-outline-info';
+        btn.onclick=()=>{document.getElementById('modalImage').src=e[key]; document.getElementById('modalImg').style.display='flex';};
+        td.appendChild(btn);
+      } else if(key==='Errores Detectados' && e[key]){
+        const btn = document.createElement('button'); btn.textContent='Ver'; btn.className='btn btn-sm btn-outline-warning';
+        btn.onclick=()=>{document.getElementById('erroresContent').textContent=e[key]; document.getElementById('modalErrores').style.display='flex';};
+        td.appendChild(btn);
+      } else td.textContent=e[key]||'';
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+    total++;
+    if((e.Resultado||'').toUpperCase().startsWith('T')) wins++;
+    net+=parseFloat(e['Ganancia/Pérdida ($)']||0);
+  });
+  document.getElementById('totalOps').textContent=total;
+  document.getElementById('winRate').textContent=total?((wins/total*100).toFixed(1)+'%'):'0%';
+  document.getElementById('netPl').textContent=net.toFixed(2);
+}
+
+renderTableFirebase();
+
+document.getElementById('closeModal').onclick=()=>{ document.getElementById('modalImg').style.display='none'; document.getElementById('modalImage').src=''; };
+document.getElementById('closeErrores').onclick=()=>{ document.getElementById('modalErrores').style.display='none'; document.getElementById('erroresContent').textContent=''; };
+</script>
+</body>
+</html>
